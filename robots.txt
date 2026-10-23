@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://navvewas.github.io/which-stimuli-to-scan/sitemap.xml
