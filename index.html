@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Which images should we scan when fMRI time is limited? Brain-Space stimulus selection improves image-to-fMRI encoding with small training sets.">
+  <title>Which Stimuli to Scan? — Data-Efficient fMRI</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #202432;
+      --muted: #5b6270;
+      --line: #e4e7ed;
+      --accent: #4358a7;
+      --accent-dark: #263b7a;
+      --wash: #f4f6fb;
+      --max-width: 1040px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: #fff;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 17px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); }
+
+    .page {
+      width: min(var(--max-width), calc(100% - 48px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: 62px 0 46px;
+      text-align: center;
+    }
+
+    h1 {
+      max-width: 900px;
+      margin: 0 auto 16px;
+      font-size: clamp(2.45rem, 5vw, 3.75rem);
+      font-weight: 760;
+      letter-spacing: -0.055em;
+      line-height: 1.08;
+    }
+
+    .subtitle {
+      max-width: 1000px;
+      margin: 0 auto 25px;
+      color: var(--ink);
+      font-size: clamp(1.65rem, 3.5vw, 2.5rem);
+      font-weight: 600;
+      letter-spacing: -0.035em;
+      line-height: 1.3;
+    }
+
+    .authors {
+      margin: 0 auto 8px;
+      font-size: 1.12rem;
+      line-height: 1.8;
+    }
+
+    .authors span { white-space: nowrap; }
+
+    .authors a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .affiliations {
+      margin: 0 0 25px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 46px;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 9px 20px;
+      border: 1px solid #292929;
+      border-radius: 999px;
+      background: #292929;
+      color: #fff;
+      font-size: 0.98rem;
+      font-weight: 680;
+      text-decoration: none;
+      transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      border-color: #454545;
+      background: #454545;
+    }
+
+    .button svg {
+      width: 18px;
+      height: 18px;
+      flex: none;
+    }
+
+    .teaser {
+      margin: 0;
+      padding: 28px 0 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .figure-link { display: block; }
+
+    .teaser img, .result-figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .teaser-video {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      background: #101522;
+    }
+
+    figcaption {
+      margin: 13px 0 0;
+      color: var(--muted);
+      font-size: 0.94rem;
+      line-height: 1.6;
+    }
+
+    figcaption strong { color: var(--ink); }
+
+    main { padding-bottom: 20px; }
+
+    section {
+      padding: 45px 0;
+      border-top: 2px solid var(--accent);
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: clamp(1.7rem, 3.5vw, 2.2rem);
+      letter-spacing: -0.035em;
+      line-height: 1.2;
+    }
+
+    h3 {
+      margin: 0 0 7px;
+      font-size: 1.12rem;
+      letter-spacing: -0.015em;
+      line-height: 1.4;
+    }
+
+    p { margin: 0 0 17px; }
+
+    .lead {
+      max-width: 900px;
+      font-size: 1.1rem;
+    }
+
+    .question {
+      margin: 27px 0;
+      padding: 20px 24px;
+      border-left: 4px solid var(--accent);
+      border-radius: 0 12px 12px 0;
+      background: var(--wash);
+      color: var(--accent-dark);
+      font-size: clamp(1.18rem, 2.3vw, 1.5rem);
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(170px, 1fr);
+      align-items: stretch;
+      gap: 14px;
+      margin: 26px 0 30px;
+    }
+
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .stat {
+      display: flex;
+      min-height: 164px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 19px 20px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      text-align: center;
+    }
+
+    .stats-context {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 20px 24px;
+      border-left: 1px solid var(--line);
+    }
+
+    .stats-context strong {
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 1.05rem;
+      line-height: 1.45;
+    }
+
+    .stats-context span {
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.5;
+    }
+
+    .stat strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent-dark);
+      font-size: 2.35rem;
+      letter-spacing: -0.05em;
+      line-height: 1.2;
+    }
+
+    .stat-method {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--ink);
+      font-size: 1.12rem;
+      font-weight: 650;
+      line-height: 1.4;
+    }
+
+    .stat-metric {
+      display: block;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .method-intro {
+      max-width: 900px;
+      margin-bottom: 28px;
+      font-size: 1.08rem;
+    }
+
+    .inline-project-link {
+      color: inherit;
+      text-decoration-color: #aeb4c0;
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1px;
+    }
+
+    .inline-project-link:hover { text-decoration-color: currentColor; }
+
+    .method-kicker {
+      display: block;
+      margin-bottom: 14px;
+      color: var(--accent);
+      font-size: clamp(1.35rem, 2.5vw, 1.65rem);
+      font-weight: 740;
+      letter-spacing: -0.03em;
+      line-height: 1.25;
+    }
+
+    .method-foundation {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 0.85fr);
+      align-items: start;
+      gap: 42px;
+      margin: 32px 0 0;
+    }
+
+    .method-foundation p,
+    .method-stage p,
+    .candidate-heading p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.02rem;
+    }
+
+    .method-foundation figure,
+    .method-stage figure,
+    .candidate-visual {
+      margin: 0;
+    }
+
+    .figure-crop {
+      display: block;
+      width: 100%;
+      background-image: url("assets/overview-highres.png");
+      background-repeat: no-repeat;
+      background-color: #fff;
+    }
+
+    .method-foundation .figure-crop {
+      aspect-ratio: 1280 / 540;
+    }
+
+    .method-foundation figure {
+      width: 88%;
+      justify-self: end;
+    }
+
+    .candidate-stage {
+      margin: 48px 0 48px;
+      padding-top: 32px;
+      border-top: 1px solid var(--line);
+    }
+
+    .candidate-intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 0.8fr);
+      align-items: start;
+      gap: 40px;
+      margin-bottom: 32px;
+    }
+
+    .candidate-heading h3 {
+      margin: 0 0 10px;
+      font-size: clamp(1.3rem, 2.5vw, 1.65rem);
+      letter-spacing: -0.025em;
+      line-height: 1.3;
+    }
+
+    .candidate-pool-crop {
+      aspect-ratio: 600 / 440;
+    }
+
+    .candidate-visual {
+      width: 78%;
+      justify-self: end;
+      padding: 0;
+    }
+
+    .baseline-heading {
+      margin: 0 0 19px;
+      font-size: clamp(1.25rem, 2.3vw, 1.5rem);
+      font-weight: 730;
+      letter-spacing: -0.025em;
+      line-height: 1.3;
+    }
+
+    .selection-methods {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+    }
+
+    .selection-method {
+      padding-top: 14px;
+      border-top: 2px solid var(--line);
+    }
+
+    .selection-method.featured { border-color: var(--accent); }
+
+    .selection-method h4 {
+      margin: 0 0 7px;
+      font-size: 1.08rem;
+      line-height: 1.4;
+    }
+
+    .selection-method p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .method-stage {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(300px, 1.05fr);
+      align-items: start;
+      gap: 42px;
+      margin-top: 38px;
+      padding: 27px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .prediction-flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) 26px 74px 26px minmax(105px, 0.9fr);
+      align-items: center;
+      gap: 8px;
+    }
+
+    .prediction-flow .figure-crop {
+      aspect-ratio: 600 / 440;
+    }
+
+    .flow-arrow {
+      color: #87909e;
+      font-size: 1.45rem;
+      text-align: center;
+    }
+
+    .encoder-chip {
+      display: grid;
+      aspect-ratio: 1;
+      place-items: center;
+      border: 2px solid #26968d;
+      border-radius: 15px;
+      background: #e5f3f1;
+      color: var(--ink);
+      font-size: 1.2rem;
+      font-weight: 750;
+    }
+
+    .activation-crop {
+      aspect-ratio: 1;
+    }
+
+    .activation-set {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: center;
+      gap: 4px;
+    }
+
+    .neural-space-visual {
+      display: grid;
+      grid-template-columns: minmax(70px, 0.72fr) minmax(0, 2fr);
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .method-stage:has(.neural-space-visual) .method-stage-visual {
+      width: 92%;
+      justify-self: end;
+    }
+
+    .neural-space-visual .figure-crop {
+      width: 100%;
+      aspect-ratio: 1.6;
+    }
+
+    .neural-space-visual .selected-images-crop {
+      aspect-ratio: 300 / 400;
+    }
+
+    .target-space-crop {
+      position: relative;
+    }
+
+    .target-space-crop::after {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: 12%;
+      background: linear-gradient(to right, #fff 0 8%, transparent 8%);
+      content: "";
+      pointer-events: none;
+    }
+
+    .method-stage-visual {
+      min-width: 0;
+    }
+
+    .method-stage-visual > .figure-crop {
+      display: block;
+      width: 100%;
+      aspect-ratio: 805 / 480;
+    }
+
+    .method-stage-copy p + p { margin-top: 12px; }
+
+    .result-group + .result-group {
+      margin-top: 52px;
+      padding-top: 38px;
+      border-top: 2px solid var(--accent);
+    }
+
+    .result-group h2 {
+      margin-bottom: 30px;
+      font-size: clamp(1.45rem, 3vw, 2rem);
+      text-transform: uppercase;
+    }
+
+    .result-claim {
+      margin-top: 28px;
+    }
+
+    .result-claim h3 {
+      margin: 0 0 8px;
+      font-size: 1.18rem;
+      line-height: 1.4;
+    }
+
+    .result-claim p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .result-claim p + p { margin-top: 10px; }
+
+    .result-copy-stack {
+      margin: 24px 0;
+    }
+
+    .result-copy-stack .result-claim + .result-claim { margin-top: 18px; }
+
+    .result-figure {
+      margin: 26px 0 38px;
+    }
+
+    .result-copy-stack + .result-figure {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+    }
+
+    .result-figure > a { display: block; }
+
+    .result-figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .result-table-wrap {
+      margin-top: 14px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .result-table {
+      width: 100%;
+      min-width: 470px;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      text-align: right;
+    }
+
+    .result-table th,
+    .result-table td {
+      padding: 8px 11px;
+      border-top: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    .result-table thead th {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 650;
+    }
+
+    .result-table th:first-child,
+    .result-table td:first-child { text-align: left; }
+
+    .result-table .emphasized-row {
+      background: var(--wash);
+      font-weight: 700;
+    }
+
+    .result-table .emphasized-row th,
+    .result-table .emphasized-row td {
+      padding-top: 11px;
+      padding-bottom: 11px;
+      font-size: 0.96rem;
+    }
+
+    .table-note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .encoder-results .result-claim + .result-claim {
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+    }
+
+    .selection-example + .selection-example {
+      margin-top: 30px;
+      padding-top: 28px;
+      border-top: 1px solid var(--line);
+    }
+
+    .selection-visual {
+      margin: 20px 0 0;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .selection-visual img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .selection-method-heading {
+      margin: 20px 0 10px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .selection-geometry {
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 0;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .selection-projection-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 650;
+      line-height: 1.25;
+      text-align: center;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+    }
+
+    .selection-method-panels {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .selection-method-panel {
+      min-width: 0;
+      text-align: center;
+    }
+
+    .selection-method-panel h4 {
+      min-height: 2.7em;
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 0.98rem;
+      line-height: 1.35;
+    }
+
+    .selection-method-panel img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .conclusion {
+      margin-top: 52px;
+      padding-top: 38px;
+      border-top: 2px solid var(--accent);
+    }
+
+    .conclusion-copy { max-width: 900px; }
+
+    .note {
+      padding: 15px 18px;
+      border-radius: 10px;
+      background: var(--wash);
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .citation {
+      overflow-x: auto;
+      margin: 20px 0 0;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f8f9fb;
+      color: #333a49;
+      font: 0.88rem/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre;
+    }
+
+    footer {
+      padding: 22px 0 38px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.89rem;
+      text-align: center;
+    }
+
+    @media (max-width: 700px) {
+      .page { width: min(100% - 32px, var(--max-width)); }
+      .hero { padding-top: 54px; }
+      .stats, .stat-cards, .selection-methods { grid-template-columns: 1fr; }
+      .stats-context {
+        padding: 0 0 4px;
+        border-left: 0;
+        text-align: center;
+      }
+      .stat { min-height: 0; }
+      .method-foundation,
+      .candidate-intro,
+      .method-stage {
+        grid-template-columns: 1fr;
+        gap: 18px;
+        padding: 22px 0;
+      }
+      .method-foundation { margin-top: 22px; }
+      .method-foundation figure,
+      .method-stage-visual { grid-row: 2; }
+      .candidate-intro { padding: 0; }
+      .prediction-flow {
+        grid-template-columns: minmax(0, 1.2fr) 18px 58px 18px minmax(80px, 0.9fr);
+        gap: 4px;
+      }
+      .flow-arrow { font-size: 1.1rem; }
+      .selection-visual.images-example { overflow-x: auto; }
+      .selection-visual.images-example img { width: 1050px; max-width: none; }
+      .selection-geometry { grid-template-columns: 32px 690px; }
+      .selection-method-panels { gap: 10px; }
+      .selection-method-panel h4 { font-size: 0.88rem; }
+      .encoder-chip { border-radius: 10px; font-size: 1rem; }
+      .neural-space-visual { gap: 5px; }
+      .result-figure {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .result-figure.figure-2 img { width: 680px; max-width: none; }
+      .result-figure.figure-3 img { width: 820px; max-width: none; }
+      section { padding: 35px 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page hero">
+    <h1>Which Stimuli to Scan?</h1>
+    <p class="subtitle">Small Image-Set Selection for Image-to-fMRI Encoder Training</p>
+    <p class="authors">
+      <span><a href="https://navvewas.github.io/">Navve Wasserman</a></span> ·
+      <span>Roman Beliy</span> ·
+      <span>Alex Nguyen</span> ·
+      <span>Kenneth A. Norman</span> ·
+      <span>Michal Irani</span>
+    </p>
+    <p class="affiliations">Weizmann Institute of Science · Princeton University</p>
+    <nav class="actions" aria-label="Page links">
+      <a class="button" href="#" aria-label="Paper link coming soon">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 3.75h9l5 5v11.5H5V3.75Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 4v5h5M8 14h8M8 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Paper
+      </a>
+      <a class="button" href="#" aria-label="Code link coming soon">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Code
+      </a>
+    </nav>
+  </header>
+
+  <figure class="page teaser">
+    <video class="teaser-video" controls autoplay muted loop playsinline preload="metadata" poster="assets/overview-slide.png" aria-label="Animated overview of the image-to-fMRI stimulus selection method">
+      <source src="assets/overview-animation.mp4" type="video/mp4">
+      Your browser does not support embedded video. <a href="assets/overview.pdf">Open the overview figure PDF</a>.
+    </video>
+  </figure>
+
+  <main class="page">
+    <section id="overview">
+      <h2>Overview</h2>
+      <p class="lead">Image-to-fMRI encoders can predict how a person’s brain will respond to new images, but training them usually requires many image–fMRI measurements. Achieving higher accuracy with smaller training sets would substantially broaden the applicability of these encoding models, facilitating both large-scale studies of population variability and studies of how visual responses change with experience or intervention.</p>
+      <div class="question">If we can scan only a few images for a new participant, which images should we choose?</div>
+      <p>We treat stimulus selection as an optimization problem. We show that image sets chosen to cover the brain-response space of a well-scanned participant generalize to new participants and improve image-to-fMRI encoding when only a small number of images are scanned. We compare selection in brain-response space with selection in image-feature space. Both outperform random sampling, with Brain-Space selection providing the largest gains.</p>
+      <div class="stats" aria-label="Key result at a 20-image budget">
+        <div class="stat-cards">
+          <div class="stat">
+            <strong>0.230</strong>
+            <span class="stat-method">Random sampling</span>
+          </div>
+          <div class="stat">
+            <strong>0.256</strong>
+            <span class="stat-method">Image-Space</span>
+          </div>
+          <div class="stat">
+            <strong>0.288</strong>
+            <span class="stat-method">Brain-Space</span>
+          </div>
+        </div>
+        <aside class="stats-context" aria-label="Shared metric details">
+          <strong>20 images</strong>
+          <span>Median voxelwise Pearson correlation, averaged across participants</span>
+        </aside>
+      </div>
+    </section>
+
+    <section id="method">
+      <h2>How it works</h2>
+      <p class="method-intro">We aim to choose the most informative images to scan for a new participant, so an image-to-fMRI encoder can be adapted effectively from a small number of measurements. We build on the image-to-fMRI encoder of <a class="inline-project-link" href="https://weizmannvision.github.io/universal-brain-encoder/" target="_blank" rel="noopener">Beliy et al.</a> and its efficient transfer learning approach.</p>
+
+      <article class="method-foundation">
+        <div>
+          <span class="method-kicker">01 · Pre-scanned fMRI data</span>
+          <p><strong>Start with an image-to-fMRI encoder trained on previously scanned participants.</strong> The Universal Encoder supports efficient transfer learning to a new participant.</p>
+        </div>
+        <figure>
+          <div class="figure-crop" data-x="22" data-y="185" data-width="1280" data-height="540" role="img" aria-label="Image-to-fMRI encoder diagram, cropped from the paper overview figure."></div>
+        </figure>
+      </article>
+
+      <div class="candidate-stage">
+        <div class="candidate-intro">
+          <div class="candidate-heading">
+            <span class="method-kicker">02 · Image-set selection</span>
+            <h3>Choose a small set from a pool of candidate images</h3>
+            <p>Choose the most informative images from the available candidate pool to scan for the new participant.</p>
+          </div>
+          <figure class="candidate-visual" role="img" aria-label="A pool of available candidate images.">
+            <div class="figure-crop candidate-pool-crop" data-x="65" data-y="1595" data-width="600" data-height="440"></div>
+          </figure>
+        </div>
+        <h4 class="baseline-heading">Three ways to select the image set</h4>
+        <div class="selection-methods">
+          <article class="selection-method">
+            <h4>Prior work: Random sampling</h4>
+            <p>Select images randomly from the candidate pool, without explicitly optimizing for visual or neural coverage.</p>
+          </article>
+          <article class="selection-method">
+            <h4>Image-Space</h4>
+            <p>Represent each image with a foundation model such as DINO or CLIP, then select images to cover the resulting image-feature space.</p>
+          </article>
+          <article class="selection-method featured">
+            <h4>Brain-Space</h4>
+            <p>Use the pre-trained image-to-fMRI encoder to predict each candidate image’s neural responses in previously scanned participants, then select images based on those predictions.</p>
+          </article>
+        </div>
+      </div>
+
+      <article class="method-stage">
+        <div class="method-stage-copy">
+          <span class="method-kicker">03 · Predict brain activity</span>
+          <p>For each candidate image, the pre-trained encoder predicts neural responses in the source participants, mapping the image into their Brain-Space.</p>
+        </div>
+        <figure class="method-stage-visual">
+          <div class="prediction-flow" role="img" aria-label="Candidate images pass through an image-to-fMRI encoder to produce predicted brain activity.">
+            <div class="figure-crop candidate-pool-crop" data-x="65" data-y="1595" data-width="600" data-height="440"></div>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <span class="encoder-chip" aria-hidden="true">Enc</span>
+            <span class="flow-arrow" aria-hidden="true">→</span>
+            <div class="activation-set" aria-hidden="true">
+              <div class="figure-crop activation-crop" data-x="1090" data-y="1565" data-width="210" data-height="460"></div>
+              <div class="figure-crop activation-crop" data-x="1090" data-y="1565" data-width="210" data-height="460"></div>
+              <div class="figure-crop activation-crop" data-x="1090" data-y="1565" data-width="210" data-height="460"></div>
+            </div>
+          </div>
+        </figure>
+      </article>
+
+      <article class="method-stage">
+        <div class="method-stage-copy">
+          <span class="method-kicker">04 · Cover Brain-Space</span>
+          <p>We select images whose predicted neural responses cover the source participants’ Brain-Space, creating a compact set for adapting the encoder to a new participant.</p>
+        </div>
+        <figure class="method-stage-visual">
+          <div class="neural-space-visual" role="img" aria-label="Selected images alongside the source participants’ Brain-Space coverage.">
+            <div class="figure-crop selected-images-crop" data-x="2470" data-y="1540" data-width="300" data-height="400"></div>
+            <div class="figure-crop" data-x="1390" data-y="1520" data-width="820" data-height="515"></div>
+          </div>
+        </figure>
+      </article>
+
+      <article class="method-stage">
+        <div class="method-stage-copy">
+          <span class="method-kicker">05 · Scan the new participant</span>
+          <p>We can then scan the new participant using the selected images. We test this retrospectively with existing scans and find that the selected images also cover the participant’s measured Brain-Space, providing useful image–fMRI pairs for adapting the encoder with relatively few scans.</p>
+        </div>
+        <figure class="method-stage-visual">
+          <div class="neural-space-visual" role="img" aria-label="Selected images alongside the new participant’s Brain-Space coverage.">
+            <div class="figure-crop selected-images-crop" data-x="2470" data-y="1540" data-width="300" data-height="400"></div>
+            <div class="figure-crop target-space-crop" data-x="2800" data-y="1450" data-width="850" data-height="530"></div>
+          </div>
+        </figure>
+      </article>
+    </section>
+
+    <section id="results">
+      <div class="result-group">
+        <h2>Selecting which stimuli to scan improves encoding performance</h2>
+        <div class="result-copy-stack">
+          <article class="result-claim">
+            <h3>Optimized image sets outperform random sampling</h3>
+            <p><strong>Both Image-Space and Brain-Space selection improve encoding over random sampling, and Brain-Space selection outperforms Image-Space.</strong> At 20 images, participant-averaged median voxelwise Pearson correlation rises from 0.230 with random sampling to 0.256 with Image-Space and 0.288 with Brain-Space selection.</p>
+          </article>
+          <article class="result-claim">
+            <h3>Encoding improvements extend across visual regions</h3>
+            <p><strong>Brain-Space selection improves encoding across visual regions.</strong> The gains over Image-Space are especially pronounced in regions selective for faces, bodies, and scenes.</p>
+          </article>
+        </div>
+        <figure class="result-figure figure-2" tabindex="0" aria-label="Scrollable Figure 2. Swipe horizontally on a phone to see both panels.">
+          <a href="assets/nsd-results.pdf" target="_blank" rel="noopener" aria-label="Open the full Figure 2 PDF">
+            <img src="assets/nsd-results-highres.png" alt="Figure 2: (a) Median correlation across image-set sizes, with Brain-Space and Image-Space selection outperforming random sampling. (b) Encoding performance across visual regions.">
+          </a>
+        </figure>
+      </div>
+
+      <div class="result-group">
+        <h2>Generalization across datasets</h2>
+        <div class="result-copy-stack">
+          <article class="result-claim">
+            <h3>NSD-derived selection transfers to LAION-fMRI</h3>
+            <p><strong>We select LAION-fMRI training images using Brain-Space representations predicted by encoders trained on NSD participants.</strong> LAION-fMRI responses are not used during selection; after selection, the measured image–fMRI pairs are used to adapt the encoder for each target participant. This NSD-derived selection improves performance over random sampling on both in-distribution and out-of-distribution test images at every image budget. With 20 images, the relative gains over random sampling are about 35% and 41%, respectively.</p>
+          </article>
+          <article class="result-claim">
+            <h3>Selection transfers across acquisition conditions</h3>
+            <p><strong>We likewise select images for the 3T Generic Object Decoding (GOD) dataset using Brain-Space representations predicted by the NSD-trained Universal Encoder,</strong> without using GOD responses during selection. The selected images improve encoding on this dataset, which uses different acquisition conditions and includes object categories absent from the target training set. With 20 images, performance improves by about 37% over random sampling and 46% over Image-Space selection.</p>
+          </article>
+        </div>
+        <figure class="result-figure figure-3" tabindex="0" aria-label="Scrollable Figure 3. Swipe horizontally on a phone to see all three panels.">
+          <a href="assets/generalization.pdf" target="_blank" rel="noopener" aria-label="Open the full Figure 3 PDF">
+            <img src="assets/generalization-highres.png" alt="Figure 3: Brain-Space selection results on LAION-fMRI in-distribution, LAION-fMRI out-of-distribution, and the GOD dataset.">
+          </a>
+        </figure>
+      </div>
+
+      <div class="result-group encoder-results">
+        <h2>Generalization across encoders</h2>
+        <article class="result-claim">
+          <h3>Brain-Space selection generalizes across selection encoders</h3>
+          <p><strong>We test whether Brain-Space selection depends on the model used to predict candidate images’ neural responses.</strong> In place of the Universal Encoder, we use subject-specific Transformer encoders trained independently for each NSD source participant. The selection objective, downstream Universal Encoder adaptation, and evaluation remain fixed. Brain-Space selection with the Transformer closely matches selection with the Universal Encoder (0.282 vs. 0.288 at 20 images) and outperforms Image-Space and random sampling at every tested budget.</p>
+          <div class="result-table-wrap">
+            <table class="result-table" aria-label="Selection encoder generalization results">
+              <thead>
+                <tr><th scope="col">Selection method</th><th scope="col">20 images</th><th scope="col">40</th><th scope="col">60</th><th scope="col">80</th><th scope="col">100</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">Random</th><td>0.232</td><td>0.294</td><td>0.327</td><td>0.346</td><td>0.361</td></tr>
+                <tr><th scope="row">Image-Space</th><td>0.259</td><td>0.310</td><td>0.335</td><td>0.351</td><td>0.364</td></tr>
+                <tr class="emphasized-row"><th scope="row">Brain-Space (Universal Encoder)</th><td>0.288</td><td>0.333</td><td>0.353</td><td>0.361</td><td>0.372</td></tr>
+                <tr class="emphasized-row"><th scope="row">Brain-Space (Transformer)</th><td>0.282</td><td>0.326</td><td>0.349</td><td>0.357</td><td>0.369</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">Median voxelwise Pearson correlation; higher is better.</p>
+        </article>
+        <article class="result-claim">
+          <h3>Selected images also benefit a different downstream encoder</h3>
+          <p><strong>Brain-Space-selected images improve a different downstream image-to-fMRI encoder at every tested image-set size.</strong> Selection uses the Universal Encoder; the selected images train a subject-specific Transformer from scratch.</p>
+          <div class="result-table-wrap">
+            <table class="result-table" aria-label="Downstream encoder generalization results">
+              <thead>
+                <tr><th scope="col">Selection method</th><th scope="col">20 images</th><th scope="col">40</th><th scope="col">60</th><th scope="col">80</th><th scope="col">100</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">Random</th><td>0.130</td><td>0.154</td><td>0.164</td><td>0.175</td><td>0.184</td></tr>
+                <tr><th scope="row">Image-Space</th><td>0.142</td><td>0.166</td><td>0.172</td><td>0.183</td><td>0.187</td></tr>
+                <tr class="emphasized-row"><th scope="row">Brain-Space</th><td>0.177</td><td>0.192</td><td>0.196</td><td>0.201</td><td>0.207</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="table-note">Median voxelwise Pearson correlation on the NSD fixed test set; higher is better.</p>
+        </article>
+      </div>
+
+      <div class="result-group">
+        <h2>Visualizing the selected images</h2>
+        <div class="selection-example">
+          <article class="result-claim">
+            <h3>A 20-image set selected from NSD</h3>
+            <p>This example shows the 20 images selected with Brain-Space Coverage from NSD Subject 1, Candidate Pool 1.</p>
+          </article>
+          <figure class="selection-visual images-example">
+            <img class="nsd-image-strip" src="assets/nsd-selected-images-20.png" alt="Twenty images selected from NSD Subject 1, arranged as two rows of ten images.">
+          </figure>
+        </div>
+        <div class="selection-example">
+          <article class="result-claim">
+            <h3>Where each method selects images in Brain Space</h3>
+            <p>Each gray dot is a candidate image, placed according to its neural response predicted by the NSD encoder. The responses are reduced to 50 dimensions with PCA and then shown in a two-dimensional t-SNE projection. Colored dots mark the 20 images chosen by each method. Brain-Space Coverage places selected images in candidate neighborhoods that are sparsely represented by Random and Image-Space Coverage. A separate quantitative analysis confirms that Brain-Space Coverage achieves higher coverage in both predicted source responses and measured target-participant responses. Because t-SNE can distort distances, the plotted spacing is not itself a coverage measure; selection and quantitative coverage are evaluated in the original response space.</p>
+          </article>
+          <div class="selection-method-heading">Selection methods</div>
+          <div class="selection-geometry" aria-label="Comparison of three image selection methods in a shared projection into Brain Space">
+            <div class="selection-projection-label">Projection into Brain Space</div>
+            <div class="selection-method-panels">
+              <div class="selection-method-panel">
+                <h4>Random</h4>
+                <img src="assets/brain-space-projection-random.png" alt="The same NSD candidate pool projected into Brain Space, with 20 randomly selected images highlighted.">
+              </div>
+              <div class="selection-method-panel">
+                <h4>Image-Space Coverage</h4>
+                <img src="assets/brain-space-projection-image-coverage.png" alt="The same NSD candidate pool projected into Brain Space, with the 20 images selected by Image Space Coverage highlighted.">
+              </div>
+              <div class="selection-method-panel">
+                <h4>Brain-Space Coverage</h4>
+                <img src="assets/brain-space-projection-brain-coverage.png" alt="The same NSD candidate pool projected into Brain Space, with the 20 images selected by Brain Space Coverage highlighted.">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="conclusion">
+        <div class="conclusion-copy">
+          <h2>Conclusion</h2>
+          <p>Rapidly characterizing an individual’s visual representations from only a few image–fMRI pairs is practically important. Image-to-fMRI encoders extend what can be learned from fMRI measurements by predicting participant-specific responses to unscanned images, while cross-subject transfer further reduces the amount of data required to fine-tune a pre-trained model on a new participant. This makes the choice of the few images that are actually scanned an important part of the problem. Our work treats this as an experimental-design problem, optimizing the small image set specifically to support efficient encoder transfer. The improvement over Random sampling establishes the value of optimized stimulus selection, but the additional advantage over Image-Space is also significant. We hypothesize that this gap reflects an imperfect correspondence between visual and neural representations. Although deep networks capture aspects of visual brain representations, as assessed by benchmarks such as Brain-Score, this correspondence remains incomplete. Similarities in image-feature space may therefore differ from those in Brain-Space, so a set covering image space well does not necessarily provide good coverage of brain responses.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="citation">
+      <h2>Citation</h2>
+      <p>If you use this work, please cite:</p>
+      <pre class="citation">@misc{wasserman2026which,
+  title  = {Which Stimuli to Scan? Small Image-Set Selection for Image-to-fMRI Encoder Training},
+  author = {Wasserman, Navve and Beliy, Roman and Nguyen, Alex and Norman, Kenneth A. and Irani, Michal},
+  year   = {2026}
+}</pre>
+    </section>
+  </main>
+
+  <footer class="page">
+    Project page for <em>Which Stimuli to Scan?</em>
+  </footer>
+  <script>
+    const overviewSlide = new Image();
+    overviewSlide.src = "assets/overview-highres.png";
+
+    function positionFigureCrops() {
+      if (!overviewSlide.naturalWidth) return;
+      document.querySelectorAll(".figure-crop").forEach((crop) => {
+        const scale = crop.clientWidth / Number(crop.dataset.width);
+        crop.style.backgroundSize =
+          `${overviewSlide.naturalWidth * scale}px ${overviewSlide.naturalHeight * scale}px`;
+        crop.style.backgroundPosition =
+          `${-Number(crop.dataset.x) * scale}px ${-Number(crop.dataset.y) * scale}px`;
+      });
+    }
+
+    overviewSlide.addEventListener("load", positionFigureCrops);
+    new ResizeObserver(positionFigureCrops).observe(document.body);
+  </script>
+</body>
+</html>
